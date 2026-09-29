@@ -19,3 +19,12 @@ def preprocess(png, dataset):
     canvas.paste(img, ((28 - img.width) // 2, (28 - img.height) // 2))
     x = np.asarray(canvas, dtype=np.float32) / 255
     return ((x - 0.1307) / 0.3081)[None, None]
+
+
+def features(png, x):
+    img = Image.open(io.BytesIO(png)).convert("L")
+    left, top, right, bottom = img.getbbox()
+    return {
+        "ink": float(((x * 0.3081 + 0.1307) > 0.5).mean()),
+        "size": (right - left) * (bottom - top) / (img.width * img.height),
+    }

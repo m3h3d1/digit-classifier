@@ -14,13 +14,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.preprocess import preprocess
+from app.preprocess import features, preprocess
 
 HERE = Path(__file__).parent
 INFO = json.loads((HERE / "model/info.json").read_text())
 SESSION = ort.InferenceSession(str(HERE / "model/model.onnx"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "collected"))
 LABELS = DATA_DIR / "labels.csv"
+LOG = Path(os.environ.get("LOG_DIR", "logs")) / "predictions.jsonl"
 FIELDS = ["file", "label", "predicted", "model_version", "created"]
 
 app = FastAPI()
@@ -58,13 +59,18 @@ def health():
 
 @app.post("/predict")
 def predict(d: Drawing):
-    x = preprocess(decode(d), INFO["dataset"])
+    png = decode(d)
+    x = preprocess(png, INFO["dataset"])
     if x is None:
         return {"version": INFO["version"], "top": []}
     logits = SESSION.run(None, {"image": x})[0][0]
     p = np.exp(logits - logits.max())
     p /= p.sum()
     top = p.argsort()[::-1][:3]
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOG, "a") as f:
+        f.write(json.dumps({"time": datetime.now(timezone.utc).isoformat(), "version": INFO["version"],
+                            "label": INFO["classes"][top[0]], "confidence": float(p[top[0]]), **features(png, x)}) + "\n")
     return {"version": INFO["version"], "top": [{"label": INFO["classes"][i], "prob": float(p[i])} for i in top]}
 
 

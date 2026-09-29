@@ -19,7 +19,7 @@ MLFLOW ?= mlflow==3.16.1
 
 # One job at a time: runs share one GPU and one dataset download.
 .NOTPARALLEL:
-.PHONY: info train eval results sweep clean track report ui promote bundle serve docker data
+.PHONY: info train eval results sweep clean track report ui promote bundle serve docker data monitor simulate
 
 info:
 	@nvidia-smi --query-gpu=name,memory.total --format=csv || echo "no GPU"
@@ -73,6 +73,17 @@ data:
 	uv run --no-project --with-requirements app/requirements.txt python validate.py app/model/info.json
 	dvc add collected
 	dvc push
+
+WINDOW ?= 50
+STYLE ?= normal
+N ?= 50
+
+monitor:
+	uv run --no-project --with-requirements app/requirements.txt python monitor.py $(WINDOW) logs/predictions.jsonl
+
+# Sends changed copies of collected/ drawings to the running app (make serve).
+simulate:
+	uv run --no-project --with-requirements app/requirements.txt python simulate.py $(STYLE) $(N) http://127.0.0.1:8000
 
 docker:
 	docker build -t digit-app:v$$(python3 -c "import json; print(json.load(open('app/model/info.json'))['version'])") .
