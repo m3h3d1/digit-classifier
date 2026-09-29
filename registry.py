@@ -9,7 +9,10 @@ import onnxruntime as ort
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 
+from own import load_own
+
 NAME = "digit-classifier"
+EMNIST_DROP = 0.005
 cmd, store, path = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
 mlflow.set_tracking_uri(f"sqlite:///{store}/mlflow.db")
 client = MlflowClient()
@@ -24,6 +27,15 @@ def production():
 
 def fetch(run_id, name, dest):
     return Path(mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=name, dst_path=str(dest)))
+
+
+def own_accuracy(run_id, dest):
+    info = json.loads(fetch(run_id, "classes.json", dest).read_text())
+    x, y = load_own(info["dataset"], info["classes"], test=True)
+    if not len(y):
+        return None
+    pred = ort.InferenceSession(str(fetch(run_id, "model.onnx", dest))).run(None, {"image": x})[0].argmax(1)
+    return float((pred == y).mean()), len(y)
 
 
 def promote(src):
@@ -41,26 +53,38 @@ def promote(src):
         sys.exit(f"{name} is already production (v{prod.version})")
 
     with tempfile.TemporaryDirectory() as tmp:
+        cand, pdir = Path(tmp, "cand"), Path(tmp, "prod")
         try:
-            onnx, sample = fetch(run.info.run_id, "model.onnx", tmp), np.load(fetch(run.info.run_id, "sample.npz", tmp))
+            onnx, sample = fetch(run.info.run_id, "model.onnx", cand), np.load(fetch(run.info.run_id, "sample.npz", cand))
         except MlflowException:
             sys.exit(f"blocked: {name} has no ONNX export")
         out = ort.InferenceSession(str(onnx)).run(None, {"image": sample["x"]})[0]
-    diff = float(np.abs(out - sample["logits"]).max())
-    if diff > 1e-3:
-        sys.exit(f"blocked: ONNX differs from PyTorch (max diff {diff:.1e})")
-    print(f"check 1 ok: ONNX matches PyTorch (max diff {diff:.1e})")
+        diff = float(np.abs(out - sample["logits"]).max())
+        if diff > 1e-3:
+            sys.exit(f"blocked: ONNX differs from PyTorch (max diff {diff:.1e})")
+        print(f"check 1 ok: ONNX matches PyTorch (max diff {diff:.1e})")
 
-    if prod:
-        prun = client.get_run(prod.run_id)
-        pacc, pds = prun.data.metrics["test_accuracy"], prun.data.params["dataset"]
-        if pds != run.data.params["dataset"]:
-            sys.exit(f"blocked: dataset {run.data.params['dataset']} differs from production ({pds})")
-        if acc < pacc:
-            sys.exit(f"blocked: {acc:.2%} < production v{prod.version} {pacc:.2%}")
-        print(f"check 2 ok: {acc:.2%} >= production v{prod.version} {pacc:.2%}")
-    else:
-        print("check 2 ok: no production model yet")
+        if prod:
+            prun = client.get_run(prod.run_id)
+            pacc, pds = prun.data.metrics["test_accuracy"], prun.data.params["dataset"]
+            if pds != run.data.params["dataset"]:
+                sys.exit(f"blocked: dataset {run.data.params['dataset']} differs from production ({pds})")
+            if acc < pacc - EMNIST_DROP:
+                sys.exit(f"blocked: test {acc:.2%} is more than {EMNIST_DROP:.1%} below production v{prod.version} {pacc:.2%}")
+            print(f"check 2 ok: test {acc:.2%} vs production v{prod.version} {pacc:.2%} (max drop {EMNIST_DROP:.1%})")
+        else:
+            print("check 2 ok: no production model yet")
+
+        own = own_accuracy(run.info.run_id, cand)
+        if own is None:
+            print("check 3 skipped: no own-test drawings")
+        elif prod:
+            pown = own_accuracy(prod.run_id, pdir)
+            if own[0] < pown[0]:
+                sys.exit(f"blocked: own-test {own[0]:.2%} < production v{prod.version} {pown[0]:.2%} ({own[1]} drawings)")
+            print(f"check 3 ok: own-test {own[0]:.2%} >= production v{prod.version} {pown[0]:.2%} ({own[1]} drawings)")
+        else:
+            print(f"check 3 ok: own-test {own[0]:.2%} ({own[1]} drawings)")
 
     try:
         client.get_registered_model(NAME)

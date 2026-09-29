@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 
-from data import get_dataset
+from data import OwnDataset, get_dataset
 from model import accuracy, build, device
 
 p = argparse.ArgumentParser()
@@ -25,6 +25,10 @@ print(f"test accuracy {acc:.2%}")
 with open(f"{args.out}/run.json") as f:
     run = json.load(f)
 run["metrics"] = {"test_accuracy": acc}
+own_test = OwnDataset(ckpt["dataset"], classes, test=True)
+if len(own_test):
+    run["metrics"]["own_test_accuracy"] = accuracy(model, DataLoader(own_test, batch_size=1000), dev)
+    print(f"own test accuracy {run['metrics']['own_test_accuracy']:.2%} ({len(own_test)} drawings)")
 with open(f"{args.out}/run.json", "w") as f:
     json.dump(run, f, indent=2)
 

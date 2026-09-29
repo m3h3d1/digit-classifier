@@ -12,10 +12,10 @@ def pct(m, key):
     return f"{m[key]:.2%}" if key in m else "-"
 
 
-print(f"{'run':<40} {'epochs':>6} {'val_acc':>8} {'test_acc':>8} {'epoch_s':>7}")
+print(f"{'run':<40} {'epochs':>6} {'val_acc':>8} {'test_acc':>8} {'own_test':>8} {'epoch_s':>7}")
 for r in runs:
     m = r.data.metrics
     print(
-        f"{r.info.run_name:<40} {r.data.params.get('epochs', '-'):>6} "
-        f"{pct(m, 'val_accuracy'):>8} {pct(m, 'test_accuracy'):>8} {m.get('epoch_time', 0):>7.1f}"
+        f"{r.info.run_name:<40} {r.data.params.get('epochs', '-'):>6} {pct(m, 'val_accuracy'):>8} "
+        f"{pct(m, 'test_accuracy'):>8} {pct(m, 'own_test_accuracy'):>8} {m.get('epoch_time', 0):>7.1f}"
     )

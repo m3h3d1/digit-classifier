@@ -8,10 +8,11 @@ import uuid
 import torch
 import torchvision
 from torch import nn
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import ConcatDataset, DataLoader, Subset
 
-from data import get_dataset, split
+from data import OwnDataset, get_dataset, split
 from model import accuracy, build, device
+from own import data_version
 
 p = argparse.ArgumentParser()
 p.add_argument("--dataset", default="mnist", choices=["mnist", "emnist"])
@@ -23,6 +24,8 @@ p.add_argument("--seed", type=int, default=42)
 p.add_argument("--aug", type=int, default=0, choices=[0, 1])
 p.add_argument("--sched", default="none", choices=["none", "cosine"])
 p.add_argument("--val", type=float, default=0.1)
+p.add_argument("--own", type=int, default=0, choices=[0, 1])
+p.add_argument("--own_repeat", type=int, default=20)
 p.add_argument("--out", default="out")
 args = p.parse_args()
 
@@ -36,6 +39,13 @@ train_full, classes = get_dataset(args.dataset, train=True, aug=args.aug)
 plain, _ = get_dataset(args.dataset, train=True)
 train_idx, val_idx = split(len(plain), args.val, args.seed)
 data = Subset(train_full, train_idx)
+version = data_version()
+if args.own:
+    own = OwnDataset(args.dataset, classes, test=False)
+    data = ConcatDataset([data] + [own] * args.own_repeat)
+    print(f"own drawings: {len(own)} for training (x{args.own_repeat}), data {version['own_md5'][:8]}")
+    if version["own_stale"]:
+        print("warning: collected/ changed since the last `make data`; the recorded data version is out of date")
 loader = DataLoader(data, batch_size=args.batch, shuffle=True, num_workers=2)
 val_loader = DataLoader(Subset(plain, val_idx), batch_size=1000, num_workers=2)
 
@@ -69,7 +79,7 @@ torch.save(
 )
 run = {
     "run_uid": uuid.uuid4().hex,
-    "params": {k: v for k, v in vars(args).items() if k != "out"},
+    "params": {k: v for k, v in vars(args).items() if k != "out"} | (version if args.own else {}),
     "env": {
         "python": platform.python_version(),
         "torch": torch.__version__,

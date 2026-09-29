@@ -1,20 +1,27 @@
 import base64
-import io
+import csv
 import json
+import os
+import random
+import uuid
+from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from PIL import Image
 from pydantic import BaseModel
+
+from app.preprocess import preprocess
 
 HERE = Path(__file__).parent
 INFO = json.loads((HERE / "model/info.json").read_text())
 SESSION = ort.InferenceSession(str(HERE / "model/model.onnx"))
-# EMNIST characters fill ~24px of 28 (2px border); MNIST digits fit a 20px box.
-SIZE = 24 if INFO["dataset"] == "emnist" else 20
+DATA_DIR = Path(os.environ.get("DATA_DIR", "collected"))
+LABELS = DATA_DIR / "labels.csv"
+FIELDS = ["file", "label", "predicted", "model_version", "created"]
 
 app = FastAPI()
 
@@ -23,18 +30,20 @@ class Drawing(BaseModel):
     image: str
 
 
-def preprocess(png):
-    img = Image.open(io.BytesIO(png)).convert("L")
-    box = img.getbbox()
-    if box is None:
-        return None
-    img = img.crop(box)
-    scale = SIZE / max(img.size)
-    img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
-    canvas = Image.new("L", (28, 28))
-    canvas.paste(img, ((28 - img.width) // 2, (28 - img.height) // 2))
-    x = np.asarray(canvas, dtype=np.float32) / 255
-    return ((x - 0.1307) / 0.3081)[None, None]
+class Feedback(Drawing):
+    label: str
+    predicted: str
+
+
+def decode(d):
+    return base64.b64decode(d.image.split(",", 1)[-1])
+
+
+def counts():
+    if not LABELS.exists():
+        return Counter()
+    with open(LABELS) as f:
+        return Counter(row["label"] for row in csv.DictReader(f))
 
 
 @app.get("/")
@@ -44,12 +53,12 @@ def index():
 
 @app.get("/health")
 def health():
-    return {k: INFO[k] for k in ("version", "run", "dataset", "model", "test_accuracy")}
+    return {k: INFO[k] for k in ("version", "run", "dataset", "model", "test_accuracy", "classes")}
 
 
 @app.post("/predict")
 def predict(d: Drawing):
-    x = preprocess(base64.b64decode(d.image.split(",", 1)[-1]))
+    x = preprocess(decode(d), INFO["dataset"])
     if x is None:
         return {"version": INFO["version"], "top": []}
     logits = SESSION.run(None, {"image": x})[0][0]
@@ -57,3 +66,30 @@ def predict(d: Drawing):
     p /= p.sum()
     top = p.argsort()[::-1][:3]
     return {"version": INFO["version"], "top": [{"label": INFO["classes"][i], "prob": float(p[i])} for i in top]}
+
+
+@app.post("/feedback")
+def feedback(d: Feedback):
+    if d.label not in INFO["classes"]:
+        raise HTTPException(400, f"unknown label: {d.label}")
+    png = decode(d)
+    if preprocess(png, INFO["dataset"]) is None:
+        raise HTTPException(400, "blank drawing")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}.png"
+    (DATA_DIR / name).write_bytes(png)
+    new = not LABELS.exists()
+    with open(LABELS, "a", newline="") as f:
+        w = csv.DictWriter(f, FIELDS)
+        if new:
+            w.writeheader()
+        w.writerow({"file": name, "label": d.label, "predicted": d.predicted,
+                    "model_version": INFO["version"], "created": datetime.now(timezone.utc).isoformat()})
+    return stats()
+
+
+@app.get("/stats")
+def stats():
+    c = counts()
+    fewest = min(c[k] for k in INFO["classes"])
+    return {"total": sum(c.values()), "next": random.choice([k for k in INFO["classes"] if c[k] == fewest])}

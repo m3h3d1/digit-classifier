@@ -6,8 +6,9 @@ BATCH ?= 128
 AUG ?= 0
 SCHED ?= none
 SEED ?= 42
+OWN ?= 0
 PY ?= python3
-TRAIN = $(PY) train.py --dataset $(DATASET) --model $(MODEL) --epochs $(EPOCHS) --seed $(SEED) --aug $(AUG) --sched $(SCHED)
+TRAIN = $(PY) train.py --dataset $(DATASET) --model $(MODEL) --epochs $(EPOCHS) --seed $(SEED) --aug $(AUG) --sched $(SCHED) --own $(OWN)
 
 LRS ?= 0.003 0.001 0.0003
 BATCHES ?= 64 256
@@ -18,7 +19,7 @@ MLFLOW ?= mlflow==3.16.1
 
 # One job at a time: runs share one GPU and one dataset download.
 .NOTPARALLEL:
-.PHONY: info train eval results sweep clean track report ui promote bundle serve docker
+.PHONY: info train eval results sweep clean track report ui promote bundle serve docker data
 
 info:
 	@nvidia-smi --query-gpu=name,memory.total --format=csv || echo "no GPU"
@@ -67,6 +68,11 @@ bundle:
 
 serve:
 	uv run --no-project --with-requirements app/requirements.txt uvicorn app.main:app --port 8000
+
+data:
+	uv run --no-project --with-requirements app/requirements.txt python validate.py app/model/info.json
+	dvc add collected
+	dvc push
 
 docker:
 	docker build -t digit-app:v$$(python3 -c "import json; print(json.load(open('app/model/info.json'))['version'])") .

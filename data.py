@@ -1,5 +1,8 @@
 import torch
+from torch.utils.data import Dataset
 from torchvision import datasets, transforms
+
+from own import load_own
 
 NORMALIZE = transforms.Normalize((0.1307,), (0.3081,))
 
@@ -29,6 +32,18 @@ def get_dataset(name, train, aug=False):
     else:
         raise ValueError(f"unknown dataset: {name}")
     return data, [c.split(" ")[0] for c in data.classes]
+
+
+class OwnDataset(Dataset):
+    def __init__(self, dataset, classes, test):
+        x, y = load_own(dataset, classes, test)
+        self.x, self.y = torch.from_numpy(x), y.tolist()
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, i):
+        return self.x[i], self.y[i]
 
 
 def split(n, val, seed):

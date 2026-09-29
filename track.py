@@ -19,6 +19,8 @@ def run_name(p):
         name += "-aug"
     if p.get("sched", "none") != "none":
         name += f"-{p['sched']}"
+    if p.get("own"):
+        name += "-own"
     return name
 
 
