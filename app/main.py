@@ -72,6 +72,8 @@ def predict(d: Drawing):
 def feedback(d: Feedback):
     if d.label not in INFO["classes"]:
         raise HTTPException(400, f"unknown label: {d.label}")
+    if not d.predicted:
+        raise HTTPException(400, "predict before saving")
     png = decode(d)
     if preprocess(png, INFO["dataset"]) is None:
         raise HTTPException(400, "blank drawing")
