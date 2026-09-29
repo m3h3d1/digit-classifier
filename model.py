@@ -30,3 +30,13 @@ def build(name, num_classes):
 
 def device():
     return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+@torch.no_grad()
+def accuracy(model, loader, dev):
+    model.eval()
+    correct = total = 0
+    for x, y in loader:
+        correct += (model(x.to(dev)).argmax(1).cpu() == y).sum().item()
+        total += len(y)
+    return correct / total

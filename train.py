@@ -8,10 +8,10 @@ import uuid
 import torch
 import torchvision
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
-from data import get_dataset
-from model import build, device
+from data import get_dataset, split
+from model import accuracy, build, device
 
 p = argparse.ArgumentParser()
 p.add_argument("--dataset", default="mnist", choices=["mnist", "emnist"])
@@ -20,6 +20,9 @@ p.add_argument("--epochs", type=int, default=3)
 p.add_argument("--lr", type=float, default=0.001)
 p.add_argument("--batch", type=int, default=128)
 p.add_argument("--seed", type=int, default=42)
+p.add_argument("--aug", type=int, default=0, choices=[0, 1])
+p.add_argument("--sched", default="none", choices=["none", "cosine"])
+p.add_argument("--val", type=float, default=0.1)
 p.add_argument("--out", default="out")
 args = p.parse_args()
 
@@ -29,11 +32,16 @@ torch.backends.cudnn.deterministic = True
 
 dev = device()
 print(f"device: {dev}  dataset: {args.dataset}  model: {args.model}")
-data, classes = get_dataset(args.dataset, train=True)
+train_full, classes = get_dataset(args.dataset, train=True, aug=args.aug)
+plain, _ = get_dataset(args.dataset, train=True)
+train_idx, val_idx = split(len(plain), args.val, args.seed)
+data = Subset(train_full, train_idx)
 loader = DataLoader(data, batch_size=args.batch, shuffle=True, num_workers=2)
+val_loader = DataLoader(Subset(plain, val_idx), batch_size=1000, num_workers=2)
 
 model = build(args.model, len(classes)).to(dev)
 opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs) if args.sched == "cosine" else None
 loss_fn = nn.CrossEntropyLoss()
 
 epochs = []
@@ -47,8 +55,12 @@ for epoch in range(1, args.epochs + 1):
         loss.backward()
         opt.step()
         total += loss.item() * len(x)
-    epochs.append({"loss": total / len(data), "time": time.time() - start})
-    print(f"epoch {epoch}/{args.epochs}  loss {epochs[-1]['loss']:.4f}  time {epochs[-1]['time']:.1f}s")
+    elapsed = time.time() - start
+    if sched:
+        sched.step()
+    epochs.append({"loss": total / len(data), "val_accuracy": accuracy(model, val_loader, dev), "time": elapsed})
+    e = epochs[-1]
+    print(f"epoch {epoch}/{args.epochs}  loss {e['loss']:.4f}  val {e['val_accuracy']:.2%}  time {e['time']:.1f}s")
 
 os.makedirs(args.out, exist_ok=True)
 torch.save(

@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from data import get_dataset
-from model import build, device
+from model import accuracy, build, device
 
 p = argparse.ArgumentParser()
 p.add_argument("--out", default="out")
@@ -18,14 +18,9 @@ classes = ckpt["classes"]
 data, _ = get_dataset(ckpt["dataset"], train=False)
 model = build(ckpt["model"], len(classes)).to(dev)
 model.load_state_dict(ckpt["state"])
-model.eval()
 
-correct = 0
-with torch.no_grad():
-    for x, y in DataLoader(data, batch_size=1000):
-        correct += (model(x.to(dev)).argmax(1).cpu() == y).sum().item()
-acc = correct / len(data)
-print(f"accuracy {acc:.2%} ({correct}/{len(data)})")
+acc = accuracy(model, DataLoader(data, batch_size=1000), dev)
+print(f"test accuracy {acc:.2%}")
 
 with open(f"{args.out}/run.json") as f:
     run = json.load(f)
