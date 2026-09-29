@@ -1,0 +1,4 @@
+[core]
+    remote = store
+['remote "store"']
+    url = /home/user/.local/share/digit-classifier/dvc-store
