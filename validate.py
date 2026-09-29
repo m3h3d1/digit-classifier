@@ -2,11 +2,12 @@ import hashlib
 import json
 import sys
 from collections import Counter
+from pathlib import Path
 
 from app.preprocess import preprocess
 from own import OWN_DIR, is_test, rows
 
-info = json.loads(open(sys.argv[1]).read())
+info = json.loads(Path(sys.argv[1]).read_text())
 classes, errors, seen, names = info["classes"], [], {}, set()
 records = rows()
 
@@ -29,7 +30,7 @@ for r in records:
     try:
         if preprocess(png, info["dataset"]) is None:
             errors.append(f"{r['file']}: blank drawing")
-    except Exception as e:
+    except (OSError, ValueError) as e:
         errors.append(f"{r['file']}: unreadable ({e})")
 
 listed = {r["file"] for r in records} | {"labels.csv"}

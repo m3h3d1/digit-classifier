@@ -26,6 +26,7 @@ p.add_argument("--sched", default="none", choices=["none", "cosine"])
 p.add_argument("--val", type=float, default=0.1)
 p.add_argument("--own", type=int, default=0, choices=[0, 1])
 p.add_argument("--own_repeat", type=int, default=20)
+p.add_argument("--commit", default="none")
 p.add_argument("--out", default="out")
 args = p.parse_args()
 

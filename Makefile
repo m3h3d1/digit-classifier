@@ -7,8 +7,9 @@ AUG ?= 0
 SCHED ?= none
 SEED ?= 42
 OWN ?= 0
+COMMIT ?= none
 PY ?= python3
-TRAIN = $(PY) train.py --dataset $(DATASET) --model $(MODEL) --epochs $(EPOCHS) --seed $(SEED) --aug $(AUG) --sched $(SCHED) --own $(OWN)
+TRAIN = $(PY) train.py --dataset $(DATASET) --model $(MODEL) --epochs $(EPOCHS) --seed $(SEED) --aug $(AUG) --sched $(SCHED) --own $(OWN) --commit $(COMMIT)
 
 LRS ?= 0.003 0.001 0.0003
 BATCHES ?= 64 256
@@ -19,7 +20,7 @@ MLFLOW ?= mlflow==3.16.1
 
 # One job at a time: runs share one GPU and one dataset download.
 .NOTPARALLEL:
-.PHONY: info train eval results sweep clean track report ui promote bundle serve docker data monitor simulate
+.PHONY: info train eval results sweep clean track report ui promote bundle serve docker data monitor simulate lint test pipeline
 
 info:
 	@nvidia-smi --query-gpu=name,memory.total --format=csv || echo "no GPU"
@@ -84,6 +85,16 @@ monitor:
 # Sends changed copies of collected/ drawings to the running app (make serve).
 simulate:
 	uv run --no-project --with-requirements app/requirements.txt python simulate.py $(STYLE) $(N) http://127.0.0.1:8000
+
+lint:
+	uvx ruff@0.16.9 check .
+
+test:
+	uv run --no-project --with-requirements app/requirements.txt --with-requirements tests/requirements.txt python -m pytest -q tests
+
+# Retrain, gate and deploy when needed. FORCE=1 skips the retrain check.
+pipeline:
+	./pipeline.sh
 
 docker:
 	docker build -t digit-app:v$$(python3 -c "import json; print(json.load(open('app/model/info.json'))['version'])") .
