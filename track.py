@@ -4,7 +4,7 @@ from pathlib import Path
 
 import mlflow
 
-src, store = Path(sys.argv[1]), Path(sys.argv[2])
+src, store = Path(sys.argv[1]), Path(sys.argv[2]).resolve()
 
 store.mkdir(parents=True, exist_ok=True)
 mlflow.set_tracking_uri(f"sqlite:///{store}/mlflow.db")

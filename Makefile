@@ -18,7 +18,7 @@ MLFLOW ?= mlflow==3.16.1
 
 # One job at a time: runs share one GPU and one dataset download.
 .NOTPARALLEL:
-.PHONY: info train eval results sweep clean track report ui
+.PHONY: info train eval results sweep clean track report ui promote bundle serve docker
 
 info:
 	@nvidia-smi --query-gpu=name,memory.total --format=csv || echo "no GPU"
@@ -35,6 +35,7 @@ eval: out/model.pt
 
 results: train
 	$(PY) eval.py
+	$(PY) export.py
 
 # Finished runs are skipped when the sweep is rerun.
 sweep: $(SWEEP)
@@ -55,3 +56,17 @@ report:
 
 ui:
 	uvx --from $(MLFLOW) mlflow ui --backend-store-uri sqlite:///$(STORE)/mlflow.db
+
+REGISTRY = uv run --no-project --with $(MLFLOW) --with-requirements app/requirements.txt python registry.py
+
+promote:
+	$(REGISTRY) promote $(STORE) .cloudmake/artifacts
+
+bundle:
+	$(REGISTRY) bundle $(STORE) app/model
+
+serve:
+	uv run --no-project --with-requirements app/requirements.txt uvicorn app.main:app --port 8000
+
+docker:
+	docker build -t digit-app:v$$(python3 -c "import json; print(json.load(open('app/model/info.json'))['version'])") .

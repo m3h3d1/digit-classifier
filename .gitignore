@@ -4,3 +4,4 @@ data/
 out/
 __pycache__/
 *.md
+app/model/
