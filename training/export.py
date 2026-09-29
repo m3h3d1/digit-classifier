@@ -7,8 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from data import get_dataset
-from model import build
+from training.data import get_dataset
+from training.model import build
 
 try:
     import onnxscript  # noqa: F401  (needed by torch.onnx.export)

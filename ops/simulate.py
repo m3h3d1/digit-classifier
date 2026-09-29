@@ -7,7 +7,7 @@ import urllib.request
 
 from PIL import Image, ImageFilter
 
-from own import OWN_DIR, rows
+from training.own import OWN_DIR, rows
 
 style, n, url = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 random.seed(0)

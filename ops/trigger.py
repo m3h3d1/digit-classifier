@@ -5,7 +5,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 
-from own import data_version
+from training.own import data_version
 
 NAME = "digit-classifier"
 NEW_MIN = 20
@@ -26,7 +26,7 @@ if new >= NEW_MIN:
     reasons.append(f"{new} new drawings")
 
 monitor = subprocess.run(
-    [sys.executable, "monitor.py", "50", "logs/predictions.jsonl"], capture_output=True, text=True, check=False
+    [sys.executable, "-m", "ops.monitor", "50", "logs/predictions.jsonl"], capture_output=True, text=True, check=False
 )
 if monitor.returncode == 1:
     reasons.append(monitor.stdout.strip().splitlines()[-1])

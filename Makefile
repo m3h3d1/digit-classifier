@@ -9,7 +9,7 @@ SEED ?= 42
 OWN ?= 0
 COMMIT ?= none
 PY ?= python3
-TRAIN = $(PY) train.py --dataset $(DATASET) --model $(MODEL) --epochs $(EPOCHS) --seed $(SEED) --aug $(AUG) --sched $(SCHED) --own $(OWN) --commit $(COMMIT)
+TRAIN = $(PY) -m training.train --dataset $(DATASET) --model $(MODEL) --epochs $(EPOCHS) --seed $(SEED) --aug $(AUG) --sched $(SCHED) --own $(OWN) --commit $(COMMIT)
 
 LRS ?= 0.003 0.001 0.0003
 BATCHES ?= 64 256
@@ -33,11 +33,11 @@ out/model.pt:
 	$(TRAIN) --lr $(LR) --batch $(BATCH)
 
 eval: out/model.pt
-	$(PY) eval.py
+	$(PY) -m training.eval
 
 results: train
-	$(PY) eval.py
-	$(PY) export.py
+	$(PY) -m training.eval
+	$(PY) -m training.export
 
 # Finished runs are skipped when the sweep is rerun.
 sweep: $(SWEEP)
@@ -50,16 +50,16 @@ clean:
 
 # Local only (run with make, not cloudmake)
 track:
-	uv run --no-project --with $(MLFLOW) python track.py .cloudmake/artifacts $(STORE)
+	uv run --no-project --with $(MLFLOW) python -m ops.track .cloudmake/artifacts $(STORE)
 
 # Filters only when DATASET is given on the command line.
 report:
-	uv run --no-project --with $(MLFLOW) python report.py $(STORE) $(if $(filter command line,$(origin DATASET)),$(DATASET))
+	uv run --no-project --with $(MLFLOW) python -m ops.report $(STORE) $(if $(filter command line,$(origin DATASET)),$(DATASET))
 
 ui:
 	uvx --from $(MLFLOW) mlflow ui --backend-store-uri sqlite:///$(STORE)/mlflow.db
 
-REGISTRY = uv run --no-project --with $(MLFLOW) --with-requirements app/requirements.txt python registry.py
+REGISTRY = uv run --no-project --with $(MLFLOW) --with-requirements app/requirements.txt python -m ops.registry
 
 promote:
 	$(REGISTRY) promote $(STORE) .cloudmake/artifacts
@@ -71,7 +71,7 @@ serve:
 	uv run --no-project --with-requirements app/requirements.txt uvicorn app.main:app --port 8000
 
 data:
-	uv run --no-project --with-requirements app/requirements.txt python validate.py app/model/info.json
+	uv run --no-project --with-requirements app/requirements.txt python -m ops.validate app/model/info.json
 	dvc add collected
 	dvc push
 
@@ -80,11 +80,11 @@ STYLE ?= normal
 N ?= 50
 
 monitor:
-	uv run --no-project --with-requirements app/requirements.txt python monitor.py $(WINDOW) logs/predictions.jsonl
+	uv run --no-project --with-requirements app/requirements.txt python -m ops.monitor $(WINDOW) logs/predictions.jsonl
 
 # Sends changed copies of collected/ drawings to the running app (make serve).
 simulate:
-	uv run --no-project --with-requirements app/requirements.txt python simulate.py $(STYLE) $(N) http://127.0.0.1:8000
+	uv run --no-project --with-requirements app/requirements.txt python -m ops.simulate $(STYLE) $(N) http://127.0.0.1:8000
 
 lint:
 	uvx ruff@0.16.9 check .
@@ -94,7 +94,7 @@ test:
 
 # Retrain, gate and deploy when needed. FORCE=1 skips the retrain check.
 pipeline:
-	./pipeline.sh
+	ops/pipeline.sh
 
 docker:
 	docker build -t digit-app:v$$(python3 -c "import json; print(json.load(open('app/model/info.json'))['version'])") .

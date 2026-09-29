@@ -9,7 +9,7 @@ import onnxruntime as ort
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 
-from own import load_own
+from training.own import load_own
 
 NAME = "digit-classifier"
 EMNIST_DROP = 0.005

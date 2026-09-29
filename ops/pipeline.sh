@@ -13,7 +13,7 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
 fi
 
 step "1. should we retrain?"
-reason=$($PY trigger.py "$STORE")
+reason=$($PY -m ops.trigger "$STORE")
 if [ -z "$reason" ] && [ "${FORCE:-0}" != 1 ]; then
   echo "nothing to do"
   exit 0
@@ -49,4 +49,4 @@ docker build -q -t "$IMAGE" . >/dev/null
 echo "built $IMAGE"
 
 step "6. deploy with health check"
-./deploy.sh "$IMAGE" "$VERSION"
+ops/deploy.sh "$IMAGE" "$VERSION"

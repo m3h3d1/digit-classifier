@@ -7,7 +7,7 @@ import numpy as np
 import onnxruntime as ort
 
 from app.preprocess import features, preprocess
-from own import OWN_DIR, rows
+from training.own import OWN_DIR, rows
 
 SIGNALS = ["confidence", "ink", "size"]
 MIN_WINDOW = 20

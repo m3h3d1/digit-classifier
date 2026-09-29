@@ -7,8 +7,8 @@ from conftest import run
 def promote(project, store, name, **run_kw):
     art = project / name
     fakes.run_dir(art, **run_kw)
-    assert run(project, "track.py", str(art), str(store)).returncode == 0
-    r = run(project, "registry.py", "promote", str(store), str(art))
+    assert run(project, "ops.track", str(art), str(store)).returncode == 0
+    r = run(project, "ops.registry", "promote", str(store), str(art))
     return r.returncode, r.stdout + r.stderr
 
 
@@ -31,5 +31,5 @@ def test_gate(project, tmp_path):
     code, out = promote(project, store, "better", test_accuracy=0.90)
     assert code == 0 and "-> v2 @production" in out
 
-    assert run(project, "registry.py", "bundle", str(store), "bundled").returncode == 0
+    assert run(project, "ops.registry", "bundle", str(store), "bundled").returncode == 0
     assert json.loads((project / "bundled/info.json").read_text())["version"] == 2

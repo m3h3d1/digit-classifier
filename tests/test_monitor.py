@@ -22,7 +22,7 @@ def traffic(project, thick):
 
 
 def monitor(project):
-    return run(project, "monitor.py", "50", "logs/predictions.jsonl")
+    return run(project, "ops.monitor", "50", "logs/predictions.jsonl")
 
 
 def test_not_enough_predictions_is_not_an_error(project):

@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 
-from own import load_own
+from training.own import load_own
 
 NORMALIZE = transforms.Normalize((0.1307,), (0.3081,))
 

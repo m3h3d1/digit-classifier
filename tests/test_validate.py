@@ -3,7 +3,7 @@ from conftest import run
 
 
 def validate(project):
-    return run(project, "validate.py", "app/model/info.json")
+    return run(project, "ops.validate", "app/model/info.json")
 
 
 def test_clean_data_passes(project):

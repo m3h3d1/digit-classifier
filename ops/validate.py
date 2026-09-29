@@ -5,7 +5,7 @@ from collections import Counter
 from pathlib import Path
 
 from app.preprocess import preprocess
-from own import OWN_DIR, is_test, rows
+from training.own import OWN_DIR, is_test, rows
 
 info = json.loads(Path(sys.argv[1]).read_text())
 classes, errors, seen, names = info["classes"], [], {}, set()

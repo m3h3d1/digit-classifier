@@ -10,9 +10,9 @@ import torchvision
 from torch import nn
 from torch.utils.data import ConcatDataset, DataLoader, Subset
 
-from data import OwnDataset, get_dataset, split
-from model import accuracy, build, device
-from own import data_version
+from training.data import OwnDataset, get_dataset, split
+from training.model import accuracy, build, device
+from training.own import data_version
 
 p = argparse.ArgumentParser()
 p.add_argument("--dataset", default="mnist", choices=["mnist", "emnist"])

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: ./deploy.sh IMAGE [MODEL_VERSION]
+# Usage: ops/deploy.sh IMAGE [MODEL_VERSION]  (run from the project folder)
 # Replaces the running container; rolls back if /health does not report MODEL_VERSION in time.
 set -euo pipefail
 

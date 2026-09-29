@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 
-from data import OwnDataset, get_dataset
-from model import accuracy, build, device
+from training.data import OwnDataset, get_dataset
+from training.model import accuracy, build, device
 
 p = argparse.ArgumentParser()
 p.add_argument("--out", default="out")
