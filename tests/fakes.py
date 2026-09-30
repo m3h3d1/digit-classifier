@@ -83,11 +83,11 @@ def collect(root, n, label="A", thick=False, start=0):
     with open(labels, "a", newline="") as f:
         w = csv.writer(f)
         if new:
-            w.writerow(["file", "label", "predicted", "model_version", "created"])
+            w.writerow(["file", "label", "predicted", "model_version", "created", "mode"])
         for i in range(start, start + n):
             name = f"{uuid.UUID(int=i).hex}.png"
             (root / name).write_bytes(drawing(i, thick))
-            w.writerow([name, label, label, 1, "2026-01-01T00:00:00+00:00"])
+            w.writerow([name, label, label, 1, "2026-01-01T00:00:00+00:00", "collect"])
 
 
 if __name__ == "__main__":

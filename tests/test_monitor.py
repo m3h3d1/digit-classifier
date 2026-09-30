@@ -31,6 +31,16 @@ def test_not_enough_predictions_is_not_an_error(project):
     assert r.returncode == 0 and "not enough predictions" in r.stdout
 
 
+def test_live_accuracy_is_split_by_mode(project):
+    root = project / "collected"
+    fakes.collect(root, 4)
+    with open(root / "labels.csv", "a") as f:
+        f.write(f"{(root / 'x.png').name},B,A,1,2026-01-01T00:00:00+00:00,free\n")
+    (root / "x.png").write_bytes(fakes.drawing(99))
+    r = monitor(project)
+    assert "v1 collect 100% (4)" in r.stdout and "v1 free 0% (1)" in r.stdout
+
+
 def test_normal_traffic_has_no_drift(project):
     fakes.collect(project / "collected", 30)
     traffic(project, thick=False)

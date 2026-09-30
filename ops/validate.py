@@ -27,6 +27,8 @@ for r in records:
     seen[digest] = r["file"]
     if r["label"] not in classes:
         errors.append(f"{r['file']}: unknown label {r['label']!r}")
+    if r.get("mode") not in ("free", "collect"):
+        errors.append(f"{r['file']}: unknown mode {r.get('mode')!r}")
     try:
         if preprocess(png, info["dataset"]) is None:
             errors.append(f"{r['file']}: blank drawing")

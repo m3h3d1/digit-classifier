@@ -20,12 +20,15 @@ def test_problems_are_caught(project):
     (root / "copy.png").write_bytes((root / first).read_bytes())
     (root / "odd.png").write_bytes(fakes.drawing(50))
     (root / "stray.png").write_bytes(fakes.drawing(51))
-    extra = [("blank.png", "A"), ("copy.png", "A"), ("odd.png", "?"), (first, "A"), ("gone.png", "A")]
+    (root / "moody.png").write_bytes(fakes.drawing(52))
+    extra = [("blank.png", "A", "collect"), ("copy.png", "A", "collect"), ("odd.png", "?", "collect"),
+             (first, "A", "collect"), ("gone.png", "A", "collect"), ("moody.png", "A", "guess")]
     with open(root / "labels.csv", "a") as f:
-        f.writelines(f"{name},{label},{label},1,2026-01-01T00:00:00+00:00\n" for name, label in extra)
+        f.writelines(f"{name},{label},{label},1,2026-01-01T00:00:00+00:00,{mode}\n" for name, label, mode in extra)
 
     r = validate(project)
     assert r.returncode == 1
     for problem in ["blank.png: blank drawing", "copy.png: duplicate of", "odd.png: unknown label '?'",
-                    f"{first}: listed twice", "gone.png: file missing", "stray.png: not in labels.csv"]:
+                    f"{first}: listed twice", "gone.png: file missing", "stray.png: not in labels.csv",
+                    "moody.png: unknown mode 'guess'"]:
         assert problem in r.stdout

@@ -7,6 +7,7 @@ import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import onnxruntime as ort
@@ -22,7 +23,7 @@ SESSION = ort.InferenceSession(str(HERE / "model/model.onnx"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "collected"))
 LABELS = DATA_DIR / "labels.csv"
 LOG = Path(os.environ.get("LOG_DIR", "logs")) / "predictions.jsonl"
-FIELDS = ["file", "label", "predicted", "model_version", "created"]
+FIELDS = ["file", "label", "predicted", "model_version", "created", "mode"]
 
 app = FastAPI()
 
@@ -34,6 +35,7 @@ class Drawing(BaseModel):
 class Feedback(Drawing):
     label: str
     predicted: str
+    mode: Literal["free", "collect"]
 
 
 def decode(d):
@@ -92,7 +94,8 @@ def feedback(d: Feedback):
         if new:
             w.writeheader()
         w.writerow({"file": name, "label": d.label, "predicted": d.predicted,
-                    "model_version": INFO["version"], "created": datetime.now(timezone.utc).isoformat()})
+                    "model_version": INFO["version"], "created": datetime.now(timezone.utc).isoformat(),
+                    "mode": d.mode})
     return stats()
 
 

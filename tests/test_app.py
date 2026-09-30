@@ -36,11 +36,13 @@ def test_predict_blank_returns_nothing(client):
     assert client.post("/predict", json={"image": url(fakes.blank())}).json()["top"] == []
 
 
-def test_feedback_saves_drawing_and_row(client, project):
-    r = client.post("/feedback", json={"image": url(fakes.drawing(2)), "label": "B", "predicted": "A"})
+@pytest.mark.parametrize("mode", ["free", "collect"])
+def test_feedback_saves_drawing_and_row(client, project, mode):
+    r = client.post("/feedback", json={"image": url(fakes.drawing(2)), "label": "B", "predicted": "A", "mode": mode})
     assert r.status_code == 200 and r.json()["total"] == 1
     rows = list(csv.DictReader((project / "collected/labels.csv").read_text().splitlines()))
-    assert rows[0]["label"] == "B" and (project / "collected" / rows[0]["file"]).exists()
+    assert rows[0]["label"] == "B" and rows[0]["mode"] == mode
+    assert (project / "collected" / rows[0]["file"]).exists()
 
 
 @pytest.mark.parametrize("image, label, predicted, error", [
@@ -49,5 +51,11 @@ def test_feedback_saves_drawing_and_row(client, project):
     (fakes.drawing(3), "A", "", "predict before saving"),
 ])
 def test_feedback_rejects_bad_input(client, image, label, predicted, error):
-    r = client.post("/feedback", json={"image": url(image), "label": label, "predicted": predicted})
+    r = client.post("/feedback", json={"image": url(image), "label": label, "predicted": predicted, "mode": "free"})
     assert r.status_code == 400 and error in r.json()["detail"]
+
+
+@pytest.mark.parametrize("extra", [{}, {"mode": "guess"}])
+def test_feedback_requires_a_known_mode(client, extra):
+    r = client.post("/feedback", json={"image": url(fakes.drawing(4)), "label": "A", "predicted": "A", **extra})
+    assert r.status_code == 422

@@ -9,35 +9,51 @@
   main { max-width: 320px; margin: 0 auto; }
   canvas { background: #000; border-radius: 8px; touch-action: none; width: 100%; aspect-ratio: 1; }
   .buttons { display: flex; gap: 8px; margin: 12px 0; }
-  button { flex: 1; padding: 10px; font-size: 16px; border: 0; border-radius: 6px; cursor: pointer; }
+  button { flex: 1; padding: 10px; font-size: 16px; border: 0; border-radius: 6px; cursor: pointer; background: #e4e4e7; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .tabs button.on { background: #18181b; color: #fff; }
   #predict { background: #2563eb; color: #fff; }
-  #clear { background: #e4e4e7; }
+  #savebtn { background: #16a34a; color: #fff; }
   li { font-size: 18px; margin: 4px 0; }
   .muted { color: #71717a; font-size: 13px; }
   [hidden] { display: none !important; }
   select { flex: 1; font-size: 16px; padding: 8px; }
-  #savebtn { background: #16a34a; color: #fff; }
 </style>
 </head>
 <body>
 <main>
+  <div class="buttons tabs"><button id="free-tab">Free draw</button><button id="collect-tab">Collect</button></div>
   <h1>Draw a character</h1>
-  <p>Try drawing: <b id="next"></b> <span class="muted">· saved: <span id="total">0</span></span></p>
+  <p id="hint">Try drawing: <b id="next"></b></p>
   <canvas id="pad" width="280" height="280"></canvas>
   <div class="buttons"><button id="clear">Clear</button><button id="predict">Predict</button></div>
   <ol id="top"></ol>
+  <div class="buttons" id="verdict" hidden><button id="right">✅ Correct</button><button id="wrong">❌ Wrong</button></div>
   <div class="buttons" id="save" hidden>
     <select id="label" aria-label="Correct label"></select><button id="savebtn">Save</button>
   </div>
-  <p class="muted" id="model"></p>
+  <p class="muted">saved: <span id="total">0</span> · <span id="model"></span></p>
 </main>
 <script>
 const pad = document.getElementById("pad"), ctx = pad.getContext("2d");
 const $ = id => document.getElementById(id);
-let next = "", predicted = "";
-const clear = () => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 280, 280); $("top").innerHTML = ""; $("save").hidden = true; predicted = ""; };
+let next = "", predicted = "", mode = "free";
+try { mode = localStorage.getItem("mode") === "collect" ? "collect" : "free"; } catch {}
+
+const clear = () => {
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 280, 280);
+  $("top").innerHTML = ""; $("verdict").hidden = $("save").hidden = true; predicted = "";
+};
 const showStats = s => { next = s.next; $("next").textContent = s.next; $("total").textContent = s.total; };
-clear();
+const setMode = m => {
+  mode = m;
+  try { localStorage.setItem("mode", m); } catch {}
+  $("free-tab").classList.toggle("on", m === "free");
+  $("collect-tab").classList.toggle("on", m === "collect");
+  $("hint").hidden = m === "free";
+  clear();
+};
+setMode(mode);
 ctx.strokeStyle = "#fff"; ctx.lineWidth = 20; ctx.lineCap = ctx.lineJoin = "round";
 
 let drawing = false;
@@ -46,8 +62,11 @@ pad.onpointerdown = e => { drawing = true; ctx.beginPath(); ctx.moveTo(...pos(e)
 pad.onpointermove = e => { if (drawing) { ctx.lineTo(...pos(e)); ctx.stroke(); } };
 pad.onpointerup = pad.onpointerleave = () => { drawing = false; };
 
-document.getElementById("clear").onclick = clear;
-document.getElementById("predict").onclick = async () => {
+$("free-tab").onclick = () => setMode("free");
+$("collect-tab").onclick = () => setMode("collect");
+$("clear").onclick = clear;
+
+$("predict").onclick = async () => {
   const res = await fetch("/predict", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: pad.toDataURL("image/png") }) });
   const { top } = await res.json();
@@ -55,18 +74,34 @@ document.getElementById("predict").onclick = async () => {
     ? top.map(t => `<li><b>${t.label}</b> — ${(t.prob * 100).toFixed(1)}%</li>`).join("")
     : "<li>Draw something first</li>";
   predicted = top.length ? top[0].label : "";
-  $("label").value = next;
-  $("save").hidden = !top.length;
+  if (!predicted) return;
+  if (mode === "collect") {
+    $("label").value = next;
+    $("savebtn").disabled = false;
+    $("save").hidden = false;
+  } else {
+    $("verdict").hidden = false;
+  }
 };
 
-$("savebtn").onclick = async () => {
+const send = async label => {
   const res = await fetch("/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: pad.toDataURL("image/png"), label: $("label").value, predicted }) });
+    body: JSON.stringify({ image: pad.toDataURL("image/png"), label, predicted, mode }) });
   if (res.ok) { showStats(await res.json()); clear(); }
 };
 
+$("right").onclick = () => send(predicted);
+$("wrong").onclick = () => {
+  $("verdict").hidden = true;
+  $("label").value = "";
+  $("savebtn").disabled = true;
+  $("save").hidden = false;
+};
+$("label").onchange = () => { $("savebtn").disabled = !$("label").value; };
+$("savebtn").onclick = () => send($("label").value);
+
 fetch("/health").then(r => r.json()).then(h => {
-  $("label").innerHTML = h.classes.map(c => `<option>${c}</option>`).join("");
+  $("label").innerHTML = '<option value="" disabled>choose…</option>' + h.classes.map(c => `<option>${c}</option>`).join("");
   $("model").textContent = `Model v${h.version} · ${h.run} · test accuracy ${(h.test_accuracy * 100).toFixed(2)}%`;
 });
 fetch("/stats").then(r => r.json()).then(showStats);

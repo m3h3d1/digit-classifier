@@ -38,9 +38,10 @@ def status(score):
 
 labeled = defaultdict(lambda: [0, 0])
 for r in rows():
-    labeled[r["model_version"]][0] += r["label"] == r["predicted"]
-    labeled[r["model_version"]][1] += 1
-print("live accuracy: " + " · ".join(f"v{v} {ok / n:.0%} ({n} labeled)" for v, (ok, n) in sorted(labeled.items())))
+    key = (r["model_version"], r.get("mode") or "collect")
+    labeled[key][0] += r["label"] == r["predicted"]
+    labeled[key][1] += 1
+print("live accuracy: " + " · ".join(f"v{v} {m} {ok / n:.0%} ({n})" for (v, m), (ok, n) in sorted(labeled.items())))
 
 entries = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
 current = [e for e in entries if e["version"] == info["version"]][-window:]
