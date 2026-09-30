@@ -1,10 +1,10 @@
-# digit-classifier
+# handwriting-mlops
 
-[![ci](https://github.com/m3h3d1/digit-classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/m3h3d1/digit-classifier/actions/workflows/ci.yml)
+[![ci](https://github.com/m3h3d1/handwriting-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/m3h3d1/handwriting-mlops/actions/workflows/ci.yml)
 
 Draw a digit or letter in the browser; a model predicts it.
 
-<img src="docs/screenshot.png" alt="Drawing page predicting 8 with 99.5% confidence" width="360">
+<img src="docs/screenshot.png" alt="Free draw mode predicting 2 with 98.7% confidence, with Correct and Wrong feedback buttons" width="360">
 
 ## How it works
 
